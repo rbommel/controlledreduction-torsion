@@ -4,6 +4,11 @@
 
 For a PyPI package (without the program myfrob) that integrates most of controlled-reduction into SageMath, see [pycontrolledreduction](https://github.com/edgarcosta/pycontrolledreduction/).
 
+## PyPI package
+
+For a PyPI package that integrates most of controlled-reduction into SageMath, see [pycontrolledreduction](https://github.com/edgarcosta/pycontrolledreduction/).
+
+
 ## Abstract
 An implementation of the controlled reduction method for computing the
 Hasse-Weil zeta functions of smooth projective hypersurfaces over finite
@@ -31,7 +36,7 @@ However, [SageMath](http://www.sagemath.org/) comes with all this libraries.
 
 ## Installation
 
-There are 2 options:
+There are 3 options:
 
 ### Using SageMath to provide the dependencies
 
