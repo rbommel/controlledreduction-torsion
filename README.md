@@ -1,6 +1,8 @@
 # controlled-reduction
 
-[![Build Status](https://travis-ci.org/edgarcosta/controlledreduction.svg?branch=master)](https://travis-ci.org/edgarcosta/controlledreduction)
+## PyPI package
+
+For a PyPI package (without the program myfrob) that integrates most of controlled-reduction into SageMath, see [pycontrolledreduction](https://github.com/edgarcosta/pycontrolledreduction/).
 
 ## Abstract
 An implementation of the controlled reduction method for computing the
