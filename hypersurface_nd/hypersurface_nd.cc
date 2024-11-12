@@ -6,6 +6,8 @@
 #include "hypersurface_nd.h"
 #include "timing.h"
 
+#include <flint/fmpz_vec.h>
+
 #ifdef _OPENMP
 # include <omp.h>
 #endif
@@ -74,7 +76,7 @@ Vec<ZZ_p> hypersurface_non_degenerate::frob_ND_ZZ(const int64_t coordinate, cons
     map< Vec<int64_t>, Vec<ZZ_p>, vi64less >::iterator Hnewit;
     map< Vec<int64_t>, ZZ_p, vi64less>::const_iterator it;
 
-    set(fact);
+    NTL::set(fact);
 
     v.SetLength(n+1);
 
@@ -282,7 +284,7 @@ Vec<ZZ_p> hypersurface_non_degenerate::frob_ND_ZZ_p(const int64_t coordinate, co
     map< Vec<int64_t>, Vec<ZZ_p>, vi64less >::iterator Hnewit;
     map< Vec<int64_t>, ZZ_p, vi64less>::const_iterator it;
 
-    set(fact);
+    NTL::set(fact);
 
     v.SetLength(n+1);
 
@@ -472,7 +474,7 @@ Vec<ZZ_p> hypersurface_non_degenerate::frob_ND_flint(const int64_t coordinate, c
     fmpz_init(modulus);
     conv(modulus, ZZ_p::modulus());
 
-    set(fact);
+    NTL::set(fact);
 
     v.SetLength(n+1);
     shift.SetLength(n+1);
