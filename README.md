@@ -43,21 +43,21 @@ There are 3 options:
 1. Figuring out where `SageMath` is installed. 
 We recommend doing this and storing in an environmental variable by doing:
 ```
-SAGE_ROOT=$(sage -c "print SAGE_ROOT")
+SAGE_ROOT=$(sage -c "print(SAGE_ROOT)")
 ```
-Alternatively, in Sage do `print SAGE_ROOT` and on the unix terminal:
+Alternatively, in Sage do `print(SAGE_ROOT)` and on the unix terminal:
 `
 SAGE_ROOT=<the line printed in Sage>
 `
 
 2. Download controlled reduction
 ```
-git clone https://github.com/edgarcosta/controlledreduction.git
+git clone https://github.com/rbommel/controlledreduction-torsion.git
 ```
 
 3. Change your working directory and run the configure file
 ```
-cd controlledreduction && ./configure --with-ntl=$SAGE_ROOT/local
+cd controlledreduction-torsion && ./configure --with-ntl=$SAGE_ROOT/local
 ```
 
 4. Compile everything by doing
