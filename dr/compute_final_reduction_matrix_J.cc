@@ -105,4 +105,3 @@ void de_Rham_local::compute_final_reduction_matrix_J(int64_t k)
         transpose(*M, Mtranspose);
     }
 }
-

@@ -9,8 +9,15 @@
 #include <assert.h>
 #include <stdint.h>
 
+#include <flint/flint.h>
 #include <flint/fmpz.h>
 #include <flint/fmpz_mat.h>
+#include <flint/nmod.h>
+#if defined(__has_include)
+#  if __has_include(<flint/nmod_types.h>)
+#    include <flint/nmod_types.h>
+#  endif
+#endif
 #include <flint/nmod_mat.h>
 #include <flint/nmod_vec.h>
 #include <gmp.h>
@@ -23,6 +30,46 @@
 
 using namespace NTL;
 
+#if defined(__FLINT_RELEASE) && (__FLINT_RELEASE < 30001)
+#  error "controlled-reduction requires FLINT >= 3.0.1"
+#endif
+
+#ifndef FLINT_NMOD_TYPES_H
+typedef ulong * nn_ptr;
+typedef const ulong * nn_srcptr;
+#endif
+
+typedef int nmod_dot_params_t;
+static inline nmod_dot_params_t nmod_vec_dot_params_compat(slong len, nmod_t mod)
+{
+    (void)len;
+    (void)mod;
+    return 0;
+}
+static inline ulong nmod_vec_dot_compat(nn_srcptr v1, nn_srcptr v2, slong len, nmod_t mod, nmod_dot_params_t params)
+{
+    (void)params;
+    ulong acc;
+    slong i;
+
+    acc = 0;
+    for (i = 0; i < len; ++i)
+        acc = nmod_add(acc, nmod_mul(v1[i], v2[i], mod), mod);
+
+    return acc;
+}
+static inline nn_ptr nmod_mat_row_ptr(nmod_mat_t A, slong i)
+{
+    return nmod_mat_entry_ptr(A, i, 0);
+}
+static inline nn_srcptr nmod_mat_row_srcptr(const nmod_mat_t A, slong i)
+{
+    return nmod_mat_entry_ptr(A, i, 0);
+}
+static inline fmpz * fmpz_mat_row_ptr_compat(fmpz_mat_t A, slong i)
+{
+    return fmpz_mat_entry(A, i, 0);
+}
 
 
 //computes the charpoly using Newton identities of M
@@ -62,13 +109,13 @@ void mul(fmpz * result,const fmpz_mat_t A,const fmpz * v);
 void mul(fmpz_t result,const fmpz * v,const fmpz * w, const int64_t len);
 
 //result = A * v;
-void inline mul(mp_ptr result, const nmod_mat_t A, mp_srcptr v, const int nlimbs)
+void inline mul(mp_ptr result, const nmod_mat_t A, mp_srcptr v, const nmod_dot_params_t params)
 {
     int64_t ar, ac, i ;
     ar = nmod_mat_nrows(A);
     ac = nmod_mat_ncols(A);
     for( i = 0; i < ar; ++i)
-        result[i] = _nmod_vec_dot((A->rows)[i], v, ac, A->mod, nlimbs);
+        result[i] = nmod_vec_dot_compat(nmod_mat_row_srcptr(A, i), v, ac, A->mod, params);
 }
 
 
@@ -115,7 +162,14 @@ void inline nmod_mat_sub(nmod_mat_t C, const nmod_mat_t A, const nmod_mat_t B)
 
     for (i = 0; i < C->r; ++i)
     {
+#if __FLINT_VERSION >= 3
+        _nmod_vec_sub(nmod_mat_row_ptr(C, i),
+                      nmod_mat_row_srcptr(A, i),
+                      nmod_mat_row_srcptr(B, i),
+                      C->c, C->mod);
+#else
         _nmod_vec_sub(C->rows[i], A->rows[i], B->rows[i], C->c, C->mod);
+#endif
     }
 }
 

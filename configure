@@ -17,7 +17,6 @@ PREFIX="/usr/local"
 FLINT_DIR="" # "/usr/local"
 GMP_DIR="" # "/usr/local"
 MPFR_DIR="" # "/usr/local"
-MPIR_DIR="" # "/usr/local"
 NTL_DIR="" # "/usr/local"
 
 
@@ -40,7 +39,6 @@ OPENMP=1
 # disable unnecessary libs and options
 #unset PREFIX
 #GMP_DIR=""
-unset MPIR_DIR
 unset MPFR_DIR
 #unset NTL_DIR
 #CC=""
@@ -67,10 +65,6 @@ usage()
 
     if [ ! -z ${GMP_DIR+word} ]; then
         echo "     --with-gmp=<path>    Specify location of GMP (default: $GMP_DIR)"
-    fi
-
-    if [ ! -z ${MPIR_DIR+word} ]; then
-        echo "     --with-mpir=<path>   Specify location of MPIR (default: $MPIR_DIR)"
     fi
 
     if [ ! -z ${MPFR_DIR+word} ]; then
@@ -109,6 +103,83 @@ absolute_path(){
    echo $retval
 }
 
+detect_dep(){
+   var_name="$1"
+   header="$2"
+   libname="$3"
+   shift 3
+   for prefix in "$@"; do
+      [ -z "$prefix" ] && continue
+      if [ -f "$prefix/include/$header" ] || \
+         [ -f "$prefix/include/x86_64-linux-gnu/$header" ] || \
+         [ -f "$prefix/include/aarch64-linux-gnu/$header" ] || \
+         [ -f "$prefix/include/arm-linux-gnueabihf/$header" ]; then
+         for libdir in "$prefix/lib" "$prefix/lib64" \
+             "$prefix/lib/x86_64-linux-gnu" \
+             "$prefix/lib/aarch64-linux-gnu" \
+             "$prefix/lib/arm-linux-gnueabihf"; do
+            if [ -d "$libdir" ] && ls "$libdir/lib$libname."* >/dev/null 2>&1; then
+               eval "$var_name=$prefix"
+               return 0
+            fi
+         done
+      fi
+   done
+   return 1
+}
+
+find_lib_dir(){
+   prefix="$1"
+   for libdir in "$prefix/lib" "$prefix/lib64" \
+       "$prefix/lib/x86_64-linux-gnu" \
+       "$prefix/lib/aarch64-linux-gnu" \
+       "$prefix/lib/arm-linux-gnueabihf" \
+       "$prefix/.libs" "$prefix/src/.libs"; do
+      if [ -d "$libdir" ]; then
+         echo "$libdir"
+         return 0
+      fi
+   done
+   return 1
+}
+
+find_inc_dir(){
+   prefix="$1"
+   header="$2"
+   for incdir in "$prefix/include" \
+       "$prefix/include/x86_64-linux-gnu" \
+       "$prefix/include/aarch64-linux-gnu" \
+       "$prefix/include/arm-linux-gnueabihf" \
+       "$prefix/src" "$prefix"; do
+      if [ -f "$incdir/$header" ]; then
+         echo "$incdir"
+         return 0
+      fi
+   done
+   return 1
+}
+
+configure_dep(){
+   dep="$1"
+   dep_dir="$2"
+   header="$3"
+   if [ -z "$dep_dir" ]; then
+      return 0
+   fi
+   dep_lib_dir=$(find_lib_dir "$dep_dir") || {
+      echo "Invalid $dep directory"
+      exit 1
+   }
+   dep_inc_dir=$(find_inc_dir "$dep_dir" "$header") || {
+      echo "Invalid $dep directory"
+      exit 1
+   }
+   eval "${dep}_LIB_DIR=\"$dep_lib_dir\""
+   eval "${dep}_INC_DIR=\"$dep_inc_dir\""
+   LIB_DIRS="${LIB_DIRS} ${dep_lib_dir}"
+   INC_DIRS="${INC_DIRS} ${dep_inc_dir}"
+}
+
 
 while [ "$1" != "" ]; do
     PARAM=`echo $1 | sed 's/=.*//'`
@@ -126,11 +197,6 @@ while [ "$1" != "" ]; do
         --with-gmp)
             if [ ! -z ${GMP_DIR+word} ]; then
                 GMP_DIR=$(absolute_path "$VALUE")
-            fi
-            ;;
-        --with-mpir)
-            if [ ! -z ${MPIR_DIR+word} ]; then
-                MPIR_DIR=$(absolute_path "$VALUE")
             fi
             ;;
         --with-mpfr)
@@ -186,132 +252,110 @@ while [ "$1" != "" ]; do
     shift
 done
 
+if [ -z "$SAGE_LOCAL" ] && [ -n "$SAGE_ROOT" ]; then
+    SAGE_LOCAL="$SAGE_ROOT/local"
+fi
 
-if [ -n "${FLINT_DIR}" ]; then
-    if [ -d "${FLINT_DIR}/lib" ]; then
-       GMP_LIB_DIR="${FLINT_DIR}/lib"
-       GMP_INC_DIR="${FLINT_DIR}/include"
-    elif [ -d "${FLINT_DIR}/lib64" ]; then
-       GMP_LIB_DIR="${FLINT_DIR}/lib64"
-       GMP_INC_DIR="${FLINT_DIR}/include"
-    elif [ -d "${FLINT_DIR}/.libs" ]; then
-       GMP_LIB_DIR="${FLINT_DIR}/.libs"
-       GMP_INC_DIR="${FLINT_DIR}"
-    else
-       echo "Invalid FLINT directory"
-       exit 1
-    fi
-    LIB_DIRS="${LIB_DIRS} ${FLINT_LIB_DIR}"
-    INC_DIRS="${INC_DIRS} ${FLINT_INC_DIR}"
-fi;
+if [ -z "$GMP_DIR" ]; then
+    detect_dep GMP_DIR "gmp.h" "gmp" \
+        "$SAGE_LOCAL" "$SAGE_ROOT/local" \
+        "/opt/homebrew/opt/gmp" "/usr/local/opt/gmp" \
+        "/opt/homebrew" "/usr/local" "/opt/local" "/usr"
+fi
+
+if [ -z "$FLINT_DIR" ]; then
+    detect_dep FLINT_DIR "flint/flint.h" "flint" \
+        "$SAGE_LOCAL" "$SAGE_ROOT/local" \
+        "/opt/homebrew/opt/flint" "/usr/local/opt/flint" \
+        "/opt/homebrew" "/usr/local" "/opt/local" "/usr"
+fi
+
+if [ -z "$NTL_DIR" ]; then
+    detect_dep NTL_DIR "NTL/ZZ.h" "ntl" \
+        "$SAGE_LOCAL" "$SAGE_ROOT/local" \
+        "/opt/homebrew/opt/ntl" "/usr/local/opt/ntl" \
+        "/opt/homebrew" "/usr/local" "/opt/local" "/usr"
+fi
+
+if [ -z "$MPFR_DIR" ]; then
+    detect_dep MPFR_DIR "mpfr.h" "mpfr" \
+        "$SAGE_LOCAL" "$SAGE_ROOT/local" \
+        "/opt/homebrew/opt/mpfr" "/usr/local/opt/mpfr" \
+        "/opt/homebrew" "/usr/local" "/opt/local" "/usr"
+fi
+
+if [ -z "$NTL_DIR" ]; then
+    echo "NTL not found. Install NTL or rerun with --with-ntl=<path>."
+    exit 1
+fi
+if [ -z "$FLINT_DIR" ]; then
+    echo "FLINT not found. Install FLINT or rerun with --with-flint=<path>."
+    exit 1
+fi
+if [ -z "$GMP_DIR" ]; then
+    echo "GMP not found. Install GMP or rerun with --with-gmp=<path>."
+    exit 1
+fi
+if [ -z "$MPFR_DIR" ]; then
+    echo "MPFR not found. Install MPFR or rerun with --with-mpfr=<path>."
+    exit 1
+fi
+
+
+configure_dep FLINT "$FLINT_DIR" "flint/flint.h"
 if [ ! -z ${FLINT_DIR+word} ]; then
     LIBS="${LIBS} flint"
 fi;
 
 
-if [ -n "${GMP_DIR}" ]; then
-    if [ -d "${GMP_DIR}/lib" ]; then
-       GMP_LIB_DIR="${GMP_DIR}/lib"
-       GMP_INC_DIR="${GMP_DIR}/include"
-    elif [ -d "${GMP_DIR}/lib64" ]; then
-       GMP_LIB_DIR="${GMP_DIR}/lib64"
-       GMP_INC_DIR="${GMP_DIR}/include"
-    elif [ -d "${GMP_DIR}/.libs" ]; then
-       GMP_LIB_DIR="${GMP_DIR}/.libs"
-       GMP_INC_DIR="${GMP_DIR}"
-    else
-       echo "Invalid GMP directory"
-       exit 1
-    fi
-    LIB_DIRS="${LIB_DIRS} ${GMP_LIB_DIR}"
-    INC_DIRS="${INC_DIRS} ${GMP_INC_DIR}"
-fi;
+configure_dep GMP "$GMP_DIR" "gmp.h"
 if [ ! -z ${GMP_DIR+word} ]; then
     LIBS="${LIBS} gmp gmpxx"
 fi;
 
 
-if [ -n "${MPFR_DIR}" ]; then
-    if [ -d "${MPFR_DIR}/lib" ]; then
-       MPFR_LIB_DIR="${MPFR_DIR}/lib"
-       MPFR_INC_DIR="${MPFR_DIR}/include"
-    elif [ -d "${MPFR_DIR}/lib64" ]; then
-       MPFR_LIB_DIR="${MPFR_DIR}/lib64"
-       MPFR_INC_DIR="${MPFR_DIR}/include"
-    elif [ -d "${MPFR_DIR}/.libs" ]; then
-       MPFR_LIB_DIR="${MPFR_DIR}/.libs"
-       MPFR_INC_DIR="${MPFR_DIR}"
-    elif [ -d "${MPFR_DIR}/src/.libs" ]; then
-       MPFR_LIB_DIR="${MPFR_DIR}/src/.libs"
-       MPFR_INC_DIR="${MPFR_DIR}/src"
-    else
-       echo "Invalid MPFR directory"
-       exit 1
-    fi
-    LIB_DIRS="${LIB_DIRS} ${MPFR_LIB_DIR}"
-    INC_DIRS="${INC_DIRS} ${MPFR_INC_DIR}"
-fi;
-if [ ! -z ${MPFR_DIR+word} ]; then
-    LIBS="${LIBS} mpfr"
-fi;
+configure_dep MPFR "$MPFR_DIR" "mpfr.h"
+LIBS="${LIBS} mpfr"
 
 
-if [ -n "${MPIR_DIR}" ]; then
-    if [ -d "${MPIR_DIR}/lib" ]; then
-       MPIR_LIB_DIR="${MPIR_DIR}/lib"
-       MPIR_INC_DIR="${MPIR_DIR}/include"
-    elif [ -d "${MPIR_DIR}/lib64" ]; then
-       MPIR_LIB_DIR="${MPIR_DIR}/lib64"
-       MPIR_INC_DIR="${MPIR_DIR}/include"
-    elif [ -d "${MPIR_DIR}/.libs" ]; then
-       MPIR_LIB_DIR="${MPIR_DIR}/.libs"
-       MPIR_INC_DIR="${MPIR_DIR}"
-    elif [ -d "${MPIR_DIR}/src/.libs" ]; then
-       MPIR_LIB_DIR="${MPIR_DIR}/src/.libs"
-       MPIR_INC_DIR="${MPIR_DIR}/src"
-    else
-       echo "Invalid MPIR directory"
-       exit 1
-    fi
-    LIB_DIRS="${LIB_DIRS} ${MPIR_LIB_DIR}"
-    INC_DIRS="${INC_DIRS} ${MPIR_INC_DIR}"
-fi;
-if [ ! -z ${MPIR_DIR+word} ]; then
-    LIBS="${LIBS} mpir"
-fi;
-
-
-if [ -n "${NTL_DIR}" ]; then
-    if [ -d "${NTL_DIR}/lib" ]; then
-       NTL_LIB_DIR="${NTL_DIR}/lib"
-       NTL_INC_DIR="${NTL_DIR}/include"
-    elif [ -d "${NTL_DIR}/lib64" ]; then
-       NTL_LIB_DIR="${NTL_DIR}/lib64"
-       NTL_INC_DIR="${NTL_DIR}/include"
-    elif [ -d "${NTL_DIR}/.libs" ]; then
-       NTL_LIB_DIR="${NTL_DIR}/.libs"
-       NTL_INC_DIR="${NTL_DIR}"
-    elif [ -d "${NTL_DIR}/src/.libs" ]; then
-       NTL_LIB_DIR="${NTL_DIR}/src/.libs"
-       NTL_INC_DIR="${NTL_DIR}/src"
-    else
-       echo "Invalid NTL directory"
-       exit 1
-    fi
-    LIB_DIRS="${LIB_DIRS} ${NTL_LIB_DIR}"
-    INC_DIRS="${INC_DIRS} ${NTL_INC_DIR}"
-fi;
+configure_dep NTL "$NTL_DIR" "NTL/ZZ.h"
 if [ ! -z ${NTL_DIR+word} ]; then
     LIBS="${LIBS} ntl"
 fi;
 
+KERNEL=`uname`
+ARCH=`uname -m`
+OS=`uname -s`
 
+# openmp on macOS (libomp)
+if [ "$OPENMP" = "1" ] && [ $OS = "Darwin" ]; then
+    if [ -z "$OMP_DIR" ]; then
+        detect_dep OMP_DIR "omp.h" "omp" \
+            "/opt/homebrew/opt/libomp" "/usr/local/opt/libomp" \
+            "/opt/homebrew" "/usr/local" "/opt/local" "/usr"
+    fi
+    if [ -n "$OMP_DIR" ]; then
+        if [ -d "${OMP_DIR}/lib" ]; then
+            LIB_DIRS="${LIB_DIRS} ${OMP_DIR}/lib"
+        elif [ -d "${OMP_DIR}/lib64" ]; then
+            LIB_DIRS="${LIB_DIRS} ${OMP_DIR}/lib64"
+        fi
+        if [ -d "${OMP_DIR}/include" ]; then
+            INC_DIRS="${INC_DIRS} ${OMP_DIR}/include"
+        fi
+    else
+        OPENMP=0
+    fi
+fi
 
 # include paths
 
 INCS="-I'\$(CURDIR)'"
 for INC_DIR in ${INC_DIRS}; do
-   INCS="${INCS} -isystem${INC_DIR}"
+   case "$INC_DIR" in
+      /usr/include|/usr/include/*) ;;
+      *) INCS="${INCS} -isystem${INC_DIR}" ;;
+   esac
 done
 
 # library paths
@@ -327,12 +371,6 @@ for LIB in ${LIBS}; do
    lLIBS="-l${LIB} ${lLIBS}"
 done
 LIBS="$LLIBS $lLIBS"
-
-
-
-KERNEL=`uname`
-ARCH=`uname -m`
-OS=`uname -s`
 
 if [ $OS = "Linux" ]; then
     LIBS="${LIBS} -lrt -lpthread"
@@ -424,7 +462,23 @@ if [ -z "$EXEEXT" ]; then
 fi
 
 
-JOBS=`python3 -c 'import multiprocessing as mp; print(mp.cpu_count() + 1)'`
+if command -v python3 > /dev/null; then
+    PYTHON=python3
+elif command -v python > /dev/null; then
+    PYTHON=python
+else
+    PYTHON=""
+fi
+
+if [ -n "$PYTHON" ]; then
+    JOBS=`$PYTHON -c 'import multiprocessing as mp; print(mp.cpu_count() + 1)'`
+elif command -v getconf > /dev/null; then
+    JOBS=`getconf _NPROCESSORS_ONLN 2>/dev/null`
+elif command -v sysctl > /dev/null; then
+    JOBS=`sysctl -n hw.ncpu 2>/dev/null`
+else
+    JOBS=2
+fi
 
 
 echo "# This file is generated by ./configure -- do not edit!" > Makefile
