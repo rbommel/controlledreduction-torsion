@@ -28,12 +28,11 @@ finite fields", (under preparation) by Edgar Costa and David Harvey.
 ## Dependencies
 It majorly depends on:
  - [NTL: A Library for doing Number Theory](http://www.shoup.net/ntl/)
- - [FLINT: Fast Library for Number Theory](http://flintlib.org/)
+ - [FLINT: Fast Library for Number Theory](http://flintlib.org/) (>= 3.0.1)
  
 Which depend on:
 
  - [GMP: GNU Multiple Precision Arithmetic Library](https://gmplib.org/) (for NTL and FLINT)
- - [MPIR: Multiple Precision Integers and Rationals](mpir.org) (for FLINT)
  - [MPFR: GNU Multiple Precision Floating-Point Reliably](http://www.mpfr.org/) (for FLINT)
 
 However, [SageMath](http://www.sagemath.org/) comes with all this libraries. 
@@ -41,7 +40,7 @@ However, [SageMath](http://www.sagemath.org/) comes with all this libraries.
 
 ## Installation
 
-There are 3 options:
+There are 4 options:
 
 ### Using SageMath to provide the dependencies
 
@@ -105,4 +104,37 @@ build/examples/K3_dwork
 
 4. `make check` to run some tests. 
 
+### Using Homebrew on macOS
 
+1. Install dependencies (FLINT >= 3.0.1):
+```
+brew install flint ntl gmp mpfr libomp
+```
+
+2. Run configure (auto-detects Homebrew prefixes by default):
+```
+./configure
+```
+
+3. Build and test:
+```
+make
+make check
+```
+
+If libomp is not available, configure will disable OpenMP automatically; you can also pass `--disable-openmp`.
+
+### Using apt on Ubuntu/Debian
+
+1. Install dependencies (FLINT >= 3.0.1):
+```
+sudo apt-get update
+sudo apt-get install -y yasm libomp-dev libntl-dev libflint-dev libgmp-dev
+```
+
+2. Run configure and build:
+```
+./configure
+make
+make check
+```
